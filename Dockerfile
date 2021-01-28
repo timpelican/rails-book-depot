@@ -1,47 +1,28 @@
-FROM ruby:2.6-alpine
+FROM ruby:2.6
 
-ENV BUNDLER_VERSION=2.0.2
+LABEL maintainer="tim@pelican.org"
 
-RUN apk add --update --no-cache \
-      binutils-gold \
-      build-base \
-      curl \
-      file \
-      g++ \
-      gcc \
-      git \
-      less \
-      libstdc++ \
-      libffi-dev \
-      libc-dev \ 
-      linux-headers \
-      libxml2-dev \
-      libxslt-dev \
-      libgcrypt-dev \
-      make \
-      netcat-openbsd \
-      nodejs \
-      openssl \
-      pkgconfig \
-      sqlite-dev \
-      python3 \
-      tzdata \
-      yarn
+RUN curl -sS https://dl.yarnpkg.com/debian/pubkey.gpg | apt-key add -
+RUN echo "deb https://dl.yarnpkg.com/debian/ stable main" | tee /etc/apt/sources.list.d/yarn.list
 
-RUN gem install bundler -v 2.0.2
+RUN apt-get update -yqq && apt-get install -yqq --no-install-recommends \
+	nodejs \
+	yarn
 
-WORKDIR /app
+WORKDIR /usr/src/app
 
-COPY Gemfile Gemfile.lock ./
+# Gems
+COPY Gemfile* /usr/src/app/
+ENV BUNDLE_PATH /gems
+RUN bundle install
 
-RUN bundle config build.nokogiri --use-system-libraries
-
-RUN bundle check || bundle install
-
-COPY package.json yarn.lock ./
-
+# Yarn
+COPY package.json /usr/src/app/
 RUN yarn install --check-files
 
-COPY . ./ 
+COPY . /usr/src/app/
+#Should only ever have to run this once!
+#RUN bin/rails webpacker:install
 
-ENTRYPOINT ["./entrypoints/docker-entrypoint.sh"]
+ENTRYPOINT ["./docker-entrypoint.sh"]
+CMD ["bin/rails", "s", "-b", "0.0.0.0"]
